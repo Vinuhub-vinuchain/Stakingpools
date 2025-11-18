@@ -1,227 +1,94 @@
 import { useState } from 'react';
 import {
-  Box,
-  Heading,
-  Button,
-  Input,
-  FormControl,
-  FormLabel,
-  Text,
-  useDisclosure,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  ModalCloseButton,
-  VStack,
-  useToast,
-  InputGroup,
-  InputRightElement,
+  Box, Button, Input, FormControl, FormLabel, Modal, ModalOverlay, ModalContent,
+  ModalHeader, ModalBody, ModalFooter, ModalCloseButton, VStack, Text, useDisclosure, useToast
 } from '@chakra-ui/react';
 import { ethers } from 'ethers';
 import { useContract } from '../hooks/useContract';
 
-const CreatePool: React.FC = () => {
+export default function CreatePool() {
   const { factory, account } = useContract();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
 
   const [form, setForm] = useState({
-    tokenAddress: '',
-    apr: '',
-    lockDays: '',
-    minStake: '',
-    name: '',
-    description: '',
+    token: '', apr: '', lockDays: '', minStake: '', name: '', desc: ''
   });
 
   const [tokenInfo, setTokenInfo] = useState('');
 
-  const handleTokenChange = async (value: string) => {
-    setForm(prev => ({ ...prev, tokenAddress: value }));
-    if (ethers.utils.isAddress(value) && factory) {
-      try {
-        const token = new ethers.Contract(value, erc20ABI, factory.signer);
-        const [symbol, decimals] = await Promise.all([
-          token.symbol(),
-          token.decimals(),
-        ]);
-        setTokenInfo(`${symbol} • ${decimals} decimals`);
-      } catch {
-        setTokenInfo('Invalid token address');
-      }
-    } else {
-      setTokenInfo('');
+  const validateToken = async (addr: string) => {
+    if (!ethers.isAddress(addr) || !factory) {
+      setTokenInfo('Invalid address');
+      return;
+    }
+    try {
+      const token = new ethers.Contract(addr, ["function symbol() view returns (string)", "function decimals() view returns (uint8)"], factory.signer);
+      const [symbol, decimals] = await Promise.all([token.symbol(), token.decimals()]);
+      setTokenInfo(`${symbol} • ${decimals} decimals`);
+    } catch {
+      setTokenInfo('Invalid ERC20');
     }
   };
 
-  const handleCreate = async () => {
-    if (!factory || !account) {
-      toast({ title: "Wallet not connected", status: "error", duration: 4000 });
-      return;
-    }
-
+  const create = async () => {
+    if (!factory || !account) return;
     try {
-      const createFee = await factory.CREATE_FEE();
-      const aprInBasisPoints = Math.round(parseFloat(form.apr) * 100);
-      const minStakeWei = ethers.utils.parseEther(form.minStake || "0");
-
+      const fee = await factory.CREATE_FEE();
       const tx = await factory.createPool(
-        form.tokenAddress,
-        aprInBasisPoints,
+        form.token,
+        Math.round(parseFloat(form.apr) * 100),
         parseInt(form.lockDays),
-        minStakeWei,
+        ethers.parseEther(form.minStake || "0"),
         form.name,
-        form.description,
-        { value: createFee }
+        form.desc,
+        { value: fee }
       );
-
-      toast({ title: "Transaction sent...", description: tx.hash, status: "info", duration: null });
-
+      toast({ title: "Creating pool...", status: "info" });
       await tx.wait();
-
-      toast({ title: "Pool Created Successfully!", status: "success", duration: 6000 });
+      toast({ title: "Pool Created!", status: "success" });
       onClose();
-      setForm({
-        tokenAddress: '',
-        apr: '',
-        lockDays: '',
-        minStake: '',
-        name: '',
-        description: '',
-      });
-      setTokenInfo('');
-    } catch (err: any) {
-      toast({
-        title: "Failed to create pool",
-        description: err?.reason || err?.message || "Unknown error",
-        status: "error",
-        duration: 8000,
-      });
+    } catch (e: any) {
+      toast({ title: "Failed", description: e.message.split('(')[0], status: "error" });
     }
   };
 
   return (
-    <Box bg="gray.800" p={8} borderRadius="xl" boxShadow="dark-lg">
-      <Heading as="h2" size="lg" mb={6} color="green.400">
+    <Box p={8} bg="gray.800" rounded="xl" shadow="2xl">
+      <Button w="full" size="lg" colorScheme="green" onClick={onOpen}>
         Create New Staking Pool
-      </Heading>
-
-      <FormControl mb={4}>
-        <FormLabel>Token Address</FormLabel>
-        <Input
-          value={form.tokenAddress}
-          onChange={(e) => handleTokenChange(e.target.value)}
-          placeholder="0x..."
-          size="lg"
-        />
-        {tokenInfo && (
-          <Text mt={2} fontSize="sm" color={tokenInfo.includes('Invalid') ? 'red.400' : 'green.400'}>
-            {tokenInfo}
-          </Text>
-        )}
-      </FormControl>
-
-      <Button
-        size="lg"
-        w="full"
-        colorScheme="green"
-        onClick={onOpen}
-        isDisabled={!ethers.utils.isAddress(form.tokenAddress) || tokenInfo.includes('Invalid')}
-      >
-        Create Pool
       </Button>
 
-      {/* Beautiful Modal */}
       <Modal isOpen={isOpen} onClose={onClose} size="lg">
-        <ModalOverlay backdropFilter="blur(10px)" />
+        <ModalOverlay />
         <ModalContent bg="gray.900" color="white">
           <ModalHeader>Create Staking Pool</ModalHeader>
           <ModalCloseButton />
-
           <ModalBody>
             <VStack spacing={4}>
               <FormControl isRequired>
-                <FormLabel>APR (%)</FormLabel>
-                <Input
-                  placeholder="10.5"
-                  value={form.apr}
-                  onChange={(e) => setForm(prev => ({ ...prev, apr: e.target.value }))}
-                />
+                <FormLabel>Token Address</FormLabel>
+                <Input value={form.token} onChange={(e) => {
+                  setForm({ ...form, token: e.target.value });
+                  validateToken(e.target.value);
+                }} />
+                {tokenInfo && <Text fontSize="sm" mt={1} color={tokenInfo.includes('Invalid') ? "red.400" : "green.400"}>{tokenInfo}</Text>}
               </FormControl>
 
-              <FormControl isRequired>
-                <FormLabel>Lock Period (days)</FormLabel>
-                <Input
-                  type="number"
-                  placeholder="30"
-                  value={form.lockDays}
-                  onChange={(e) => setForm(prev => ({ ...prev, lockDays: e.target.value }))}
-                />
-              </FormControl>
-
-              <FormControl isRequired>
-                <FormLabel>Minimum Stake</FormLabel>
-                <InputGroup>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="100"
-                    value={form.minStake}
-                    onChange={(e) => setForm(prev => ({ ...prev, minStake: e.target.value }))}
-                  />
-                  <InputRightElement children={<Text mr={3}>tokens</Text>} />
-                </InputGroup>
-              </FormControl>
-
-              <FormControl isRequired>
-                <FormLabel>Pool Name</FormLabel>
-                <Input
-                  placeholder="VINU Staking Pool"
-                  value={form.name}
-                  onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
-                />
-              </FormControl>
-
-              <FormControl>
-                <FormLabel>Description (optional)</FormLabel>
-                <Input
-                  placeholder="High-yield VINU staking with 30-day lock"
-                  value={form.description}
-                  onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
-                />
-              </FormControl>
-
-              <Text fontSize="sm" color="gray.400" textAlign="center">
-                Creation fee: 0.01 VC (sent to protocol)
-              </Text>
+              <FormControl isRequired><FormLabel>APR (%)</FormLabel><Input value={form.apr} onChange={e => setForm({ ...form, apr: e.target.value })} placeholder="10.5" /></FormControl>
+              <FormControl isRequired><FormLabel>Lock Period (days)</FormLabel><Input value={form.lockDays} onChange={e => setForm({ ...form, lockDays: e.target.value })} placeholder="30" /></FormControl>
+              <FormControl isRequired><FormLabel>Minimum Stake</FormLabel><Input value={form.minStake} onChange={e => setForm({ ...form, minStake: e.target.value })} placeholder="100" /></FormControl>
+              <FormControl isRequired><FormLabel>Pool Name</FormLabel><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></FormControl>
+              <FormControl><FormLabel>Description</FormLabel><Input value={form.desc} onChange={e => setForm({ ...form, desc: e.target.value })} /></FormControl>
             </VStack>
           </ModalBody>
-
           <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              colorScheme="green"
-              onClick={handleCreate}
-              isDisabled={
-                !form.apr ||
-                !form.lockDays ||
-                !form.minStake ||
-                !form.name ||
-                parseFloat(form.minStake) <= 0
-              }
-            >
-              Create Pool
+            <Button colorScheme="green" onClick={create} isDisabled={!form.token || !form.apr || !form.lockDays || !form.minStake || !form.name}>
+              Create Pool (0.01 VC fee)
             </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
     </Box>
   );
-};
-
-export default CreatePool;
+}
