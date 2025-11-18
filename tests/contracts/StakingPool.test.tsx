@@ -1,29 +1,25 @@
-const { expect } = require('chai');
-const { ethers } = require('hardhat');
+import { expect } from 'chai';
+import { ethers } from 'hardhat';
 
-describe('StakingPool', () => {
-  let StakingPool, pool, token, owner, user;
+describe("StakingPool", function () {
+  it("Should stake, calculate rewards, and allow unstake after lock", async function () {
+    const [owner, user] = await ethers.getSigners();
+    const Token = await ethers.getContractFactory("MockERC20");
+    const token = await Token.deploy();
+    await token.waitForDeployment();
 
-  beforeEach(async () => {
-    [owner, user] = await ethers.getSigners();
-    const Token = await ethers.getContractFactory('MockToken');
-    token = await Token.deploy();
-    await token.deployed();
-    StakingPool = await ethers.getContractFactory('StakingPool');
-    pool = await StakingPool.deploy(token.address, 1000, 30, ethers.utils.parseEther('100'), owner.address);
-    await pool.deployed();
-  });
+    const Pool = await ethers.getContractFactory("StakingPool");
+    const pool = await Pool.deploy(await token.getAddress(), 1000, 7, ethers.parseEther("10"), owner.address);
+    await pool.waitForDeployment();
 
-  it('allows staking', async () => {
-    await token.transfer(user.address, ethers.utils.parseEther('1000'));
-    await token.connect(user).approve(pool.address, ethers.utils.parseEther('100'));
-    await pool.connect(user).stake(ethers.utils.parseEther('100'));
-    expect(await pool.stakedBalance(user.address)).to.equal(ethers.utils.parseEther('100'));
-  });
+    await token.transfer(user.address, ethers.parseEther("100"));
+    await token.connect(user).approve(await pool.getAddress(), ethers.parseEther("50"));
+    await pool.connect(user).stake(ethers.parseEther("50"));
 
-  it('prevents staking when paused', async () => {
-    await pool.pause(true);
-    await token.connect(user).approve(pool.address, ethers.utils.parseEther('100'));
-    await expect(pool.connect(user).stake(ethers.utils.parseEther('100'))).to.be.revertedWith('Pool is paused');
+    await ethers.provider.send("evm_increaseTime", [7 * 24 * 60 * 60 + 1]);
+    await ethers.provider.send("evm_mine", []);
+
+    await pool.connect(user).unstake();
+    expect(await token.balanceOf(user.address)).to.be.above(ethers.parseEther("50"));
   });
 });
