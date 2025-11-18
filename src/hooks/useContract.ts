@@ -1,4 +1,3 @@
-// src/hooks/useContract.ts
 import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 import { useWeb3 } from './useWeb3';
