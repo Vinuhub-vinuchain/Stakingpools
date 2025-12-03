@@ -1,4 +1,3 @@
-// tests/contracts/StakingFactory.test.ts
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 
