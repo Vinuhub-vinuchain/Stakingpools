@@ -1,0 +1,9 @@
+[
+  "constructor(address _feeWallet)",
+  "event PoolCreated(address indexed poolAddress, address creator, address token, uint256 apr, uint256 lockDays, uint256 minStake, string name, string description)",
+  "function CREATE_FEE() view returns (uint256)",
+  "function feeWallet() view returns (address)",
+  "function createPool(address stakeToken, uint256 apr, uint256 lockDays, uint256 minStake, string name, string description) payable returns (address)",
+  "function getAllPools() view returns (address[])",
+  "function getUserPools(address user) view returns (address[])"
+]
