@@ -7,10 +7,12 @@ export const useWeb3 = () => {
 
   const connectWallet = async () => {
     if (!window.ethereum) throw new Error('MetaMask not installed');
+
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
       await provider.send('eth_requestAccounts', []);
       const chainId = await provider.send('eth_chainId', []);
+      
       if (chainId !== '0xcf') {
         await window.ethereum.request({
           method: 'wallet_addEthereumChain',
@@ -23,6 +25,7 @@ export const useWeb3 = () => {
           }],
         });
       }
+
       const signer = await provider.getSigner();
       const address = await signer.getAddress();
       setAccount(address);

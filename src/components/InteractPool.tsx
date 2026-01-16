@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Box, Heading, Button, Input, FormControl, FormLabel, useToast } from '@chakra-ui/react';
+import { parseEther, formatEther } from 'ethers';
 import { useContract } from '../hooks/useContract';
-import { ethers } from 'ethers';
 
 const InteractPool: React.FC = () => {
-  const { getPoolContract, getTokenContract, account } = useContract();
+  const { getPool, getToken, account } = useContract();
   const [poolAddress, setPoolAddress] = useState('');
   const toast = useToast();
 
@@ -13,59 +13,68 @@ const InteractPool: React.FC = () => {
       toast({ title: 'Error', description: 'Connect wallet', status: 'error', duration: 5000 });
       return;
     }
-    const pool = getPoolContract(poolAddress);
+
+    const pool = await getPool(poolAddress); // ✅ await here
     if (!pool) return;
-    const minStake = ethers.utils.formatEther(await pool.minStake());
-    const amount = prompt(`Enter amount to stake (Min: ${minStake})`);
-    if (amount) {
-      try {
-        const tokenAddr = await pool.stakeToken();
-        const token = getTokenContract(tokenAddr);
-        if (!token) return;
-        await token.approve(poolAddress, ethers.utils.parseEther(amount)).send();
-        const tx = await pool.stake(ethers.utils.parseEther(amount)).send();
-        await tx.wait();
-        toast({ title: 'Success', description: 'Staked successfully', status: 'success', duration: 5000 });
-      } catch (error) {
-        toast({ title: 'Error', description: (error as Error).message, status: 'error', duration: 5000 });
-      }
+
+    try {
+      const minStake = formatEther(await pool.minStake());
+      const amount = prompt(`Enter amount to stake (Min: ${minStake})`);
+      if (!amount) return;
+
+      const tokenAddr = await pool.stakeToken();
+      const token = await getToken(tokenAddr); // ✅ await here
+      if (!token) return;
+
+      const approveTx = await token.approve(poolAddress, parseEther(amount));
+      await approveTx.wait();
+
+      const tx = await pool.stake(parseEther(amount));
+      await tx.wait();
+
+      toast({ title: 'Success', description: 'Staked successfully', status: 'success', duration: 5000 });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, status: 'error', duration: 5000 });
     }
   };
 
   const unstake = async () => {
-    const pool = getPoolContract(poolAddress);
+    const pool = await getPool(poolAddress); // ✅ await here
     if (!pool) return;
+
     try {
-      const tx = await pool.unstake().send();
+      const tx = await pool.unstake();
       await tx.wait();
       toast({ title: 'Success', description: 'Unstaked successfully', status: 'success', duration: 5000 });
-    } catch (error) {
-      toast({ title: 'Error', description: (error as Error).message, status: 'error', duration: 5000 });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, status: 'error', duration: 5000 });
     }
   };
 
   const claimRewards = async () => {
-    const pool = getPoolContract(poolAddress);
+    const pool = await getPool(poolAddress); // ✅ await here
     if (!pool) return;
+
     try {
-      const tx = await pool.claimRewards().send();
+      const tx = await pool.claimRewards();
       await tx.wait();
       toast({ title: 'Success', description: 'Rewards claimed', status: 'success', duration: 5000 });
-    } catch (error) {
-      toast({ title: 'Error', description: (error as Error).message, status: 'error', duration: 5000 });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, status: 'error', duration: 5000 });
     }
   };
 
   const togglePause = async () => {
-    const pool = getPoolContract(poolAddress);
+    const pool = await getPool(poolAddress); // ✅ await here
     if (!pool) return;
-    const isPaused = await pool.paused();
+
     try {
-      const tx = await pool.pause(!isPaused).send();
+      const isPaused = await pool.paused();
+      const tx = await pool.pause(!isPaused);
       await tx.wait();
       toast({ title: 'Success', description: `Pool ${isPaused ? 'unpaused' : 'paused'}`, status: 'success', duration: 5000 });
-    } catch (error) {
-      toast({ title: 'Error', description: (error as Error).message, status: 'error', duration: 5000 });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, status: 'error', duration: 5000 });
     }
   };
 
@@ -76,7 +85,11 @@ const InteractPool: React.FC = () => {
       </Heading>
       <FormControl>
         <FormLabel>Pool Address</FormLabel>
-        <Input value={poolAddress} onChange={(e) => setPoolAddress(e.target.value)} placeholder="Pool Address" />
+        <Input
+          value={poolAddress}
+          onChange={(e) => setPoolAddress(e.target.value)}
+          placeholder="Pool Address"
+        />
         <Box mt={4}>
           <Button
             bgGradient="linear(to-r, green.500, green.300)"

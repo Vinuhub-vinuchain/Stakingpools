@@ -1,21 +1,22 @@
-import { ethers } from 'ethers';
+import type { Contract } from 'ethers';
+import type { BigNumberish } from 'ethers';
 
 export interface PoolInfo {
   poolAddress: string;
   stakeToken: string;
-  apr: number;        // in basis points (e.g., 1000 = 10%)
+  apr: number;     
   lockDays: number;
-  minStake: ethers.BigNumber;
+  minStake: BigNumberish;
   name: string;
   description: string;
 }
 
 export interface PoolStats {
-  totalStaked: ethers.BigNumber;
-  totalStakers: ethers.BigNumber;
+  totalStaked: BigNumberish;
+  totalStakers: BigNumberish;
   paused: boolean;
-  stakedBalance: ethers.BigNumber;
-  pendingRewards: ethers.BigNumber;
+  stakedBalance: BigNumberish;
+  pendingRewards: BigNumberish;
 }
 
 export interface AnalyticsData {
@@ -28,7 +29,7 @@ export interface AnalyticsData {
 }
 
 export type ContractInstances = {
-  factory: ethers.Contract | null;
-  getPool: (address: string) => ethers.Contract | null;
-  getToken: (address: string) => ethers.Contract | null;
+  factory: Contract | null;
+  getPool: (address: string) => Contract | null;
+  getToken: (address: string) => Contract | null;
 };

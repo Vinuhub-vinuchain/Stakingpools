@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
+import { Contract, formatEther } from 'ethers';
 import { useContract } from './useContract';
+import poolABI from '../abis/StakingPool.json'; 
 
 interface AnalyticsData {
   totalTVL: number;
@@ -25,8 +26,11 @@ export const useAnalytics = () => {
   useEffect(() => {
     const loadAnalytics = async () => {
       if (!factory) return;
+
       try {
-        const allPools = await factory.getAllPools();
+        const signer = await factory.getSigner(); // ethers v6 requires await
+        const allPools: string[] = await factory.getAllPools();
+
         let totalTVL = 0,
           totalAPR = 0,
           totalStakers = 0,
@@ -35,19 +39,25 @@ export const useAnalytics = () => {
         const chartData: number[] = [];
 
         for (const addr of allPools) {
-          const pool = new ethers.Contract(addr, poolABI, factory.signer);
+          const pool = new Contract(addr, poolABI, signer);
           const info = await factory.getPoolInfo(addr);
-          const staked = ethers.utils.formatEther(await pool.totalStaked());
-          totalTVL += parseFloat(staked);
-          totalAPR += parseFloat(info.apr / 100);
-          totalStakers += parseInt(await pool.totalStakers(), 10);
-          chartData.push(parseFloat(staked));
+
+          const stakedRaw = await pool.totalStaked();
+          const staked = parseFloat(formatEther(stakedRaw));
+          totalTVL += staked;
+          totalAPR += info.apr / 100; // info.apr is number
+          const stakerCount = parseInt(await pool.totalStakers(), 10);
+          totalStakers += stakerCount;
+          chartData.push(staked);
 
           if (account) {
-            const bal = ethers.utils.formatEther(await pool.stakedBalance(account));
-            const rew = ethers.utils.formatEther(await pool.getPendingRewards(account));
-            userStaked += parseFloat(bal);
-            userRewards += parseFloat(rew);
+            const balRaw = await pool.stakedBalance(account);
+            const rewRaw = await pool.getPendingRewards(account);
+
+            const bal = parseFloat(formatEther(balRaw));
+            const rew = parseFloat(formatEther(rewRaw));
+            userStaked += bal;
+            userRewards += rew;
           }
         }
 
